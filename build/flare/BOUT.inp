@@ -1,0 +1,247 @@
+# Stationary-frame adiabatic wind with outward Alfvenic fluctuations.
+# For the supplied mhd3d.cxx: velocity is COVARIANT, B is CONTRAVARIANT.
+# No time-dependent metric or expanding-box source terms are used.
+# Units: mu0=1. Positive y is outward; the mean magnetic field is positive.
+#
+# This is a controlled local flux-tube experiment, not an exact reproduction
+# of Squire et al.'s periodic, spatially isothermal expanding-box runs.
+# The diagonal metric is a local narrow-tube approximation, not an exact
+# global spherical coordinate system. Ly is deliberately longer than Lperp.
+#
+# Background (A/Ain=a^2):
+#   rho*U*a^2 = rho_in*u_in;  By*a^2 = b_in;
+#   p/rho^gamma = p_in/rho_in^gamma;
+#   U^2/2 + gamma/(gamma-1)*p/rho = E.
+# The unrolled fixed-point solve below selects the supersonic branch.
+# The background is steady in the CONTINUUM; the discrete solver is not
+# guaranteed to preserve it exactly. Run the zero-wave control first.
+#
+# Controls, using independent fresh output directories (do not restart):
+#   waves:amplitude=0                  background-only validation
+#   wind:a_out=1                      no-expansion comparison
+#   waves:amplitude=0.05              small-amplitude wave check
+# The default amplitude is RMS(delta B_perp)/B0 = 1 at every y initially.
+# There are NO initial radial reversals: By=b_in/a^2 > 0 everywhere.
+# The wave state is NOT a nonlinear equilibrium or constant-|B| solution;
+# finite-amplitude magnetic-pressure relaxation is expected.
+#
+# Sustained sinusoidal inlet driving avoids relying on a single launch pulse.
+# Initial phases match the driver at t=0. The initial uniform fractional
+# amplitude and linear y phase are not a stationary WKB wave solution.
+# Allow at least two domain crossing times before collecting statistics.
+# Default run duration is 150; the outward wave crossing time is about 41.3.
+#
+# Resolution is for exploratory work. Raise nx and nz together, e.g.
+# nx=132, nz=128, and raise ny for convergence. Keep Lx=Lz and nx-2*MXG=nz:
+# this makes the chosen modes divergence-free for the common C2 stencil
+# in the interior, as well as in the continuum. Boundary errors remain.
+# At the default resolution, each full eight-field double-precision snapshot
+# is about 128 MiB before metadata/compression. timestep is OUTPUT spacing.
+#
+# Diagnostics: physical B=(a*Bx, By, a*Bz), physical v=(v_x/a, v_y, v_z/a).
+# At each y monitor the fraction By<0, RMS(Bperp)/mean(By), variations of |B|,
+# Div(B), and rho*v_y*a^2. Volume averages require the Jacobian weight a^2.
+# free_o2 is not a characteristic/non-reflecting MHD outflow; check outlet
+# sensitivity. No explicit viscosity/resistivity is added; convergence and
+# divergence checks are required before interpreting sharp reversals.
+#
+# References:
+# https://arxiv.org/abs/2001.08422
+# https://bout-dev.readthedocs.io/en/stable/user_docs/variable_init.html
+# https://bout-dev.readthedocs.io/en/stable/user_docs/boundary_options.html
+#
+# Independent checks of the expressions (not a BOUT++ execution):
+#   Outlet U=4.502475220164075, rho=0.05552501408123013,
+#   p=0.008081298132962787, By=0.0625.
+#   Mass/flux/Bernoulli relative residuals <7e-16; the root also agrees
+#   with an independent bracketed numerical solve at that accuracy.
+#   Interior C2 initial Div(B) <5e-14 on the stated transverse grid.
+#   Analytic inlet values match the t=0 initialization exactly.
+#   C2-sampled background momentum residual is 5.6e-6 at ny=512 and
+#   1.4e-6 at ny=1024. This is NOT a test of BOUT's W3 or boundaries.
+#   The actual time evolution, expression parser and boundary driver must
+#   still be verified in your BOUT++ installation.
+
+nout = 60
+timestep = 2.5
+MXG = 2
+MYG = 2
+periodicX = true
+
+[mesh]
+nx = 68
+ny = 256
+nz = 64
+
+Lx = 2*pi
+Ly = 64*pi
+Lz = 2*pi
+dx = Lx/(nx - 2*MXG)
+dy = Ly/ny
+dz = Lz/nz
+
+# Open y boundaries; periodic x and z. No field-line shift is needed.
+ixseps1 = -1
+ixseps2 = -1
+
+
+symmetricGlobalX = true
+symmetricGlobalY = true
+
+# Covariant line element: ds^2=a^2 dx^2+dy^2+a^2 dz^2.
+# In input expressions, y is an ANGLE; physical distance is Ly*y/(2*pi).
+g11 = 1/wind:a^2
+g22 = 1
+g33 = 1/wind:a^2
+g12 = 0
+g13 = 0
+g23 = 0
+g_11 = wind:a^2
+g_22 = 1
+g_33 = wind:a^2
+g_12 = 0
+g_13 = 0
+g_23 = 0
+J = wind:a^2
+
+[mesh:paralleltransform]
+type= identity
+
+[mesh:ddx]
+first = C2
+second = C2
+upwind = W3
+
+[mesh:ddy]
+first = C2
+second = C2
+upwind = W3
+
+[mesh:ddz]
+first = C2
+second = C2
+upwind = W3
+
+[solver]
+type = cvode
+atol = 1e-10
+rtol = 1e-7
+mxstep = 200000
+
+[mhd]
+g = 5.0/3.0
+include_viscos = false
+viscos = 0
+eta = 0
+divb_diff = 0
+apply_floors = false
+dump_metric = true
+
+[wind]
+a_out = 4        ## Expansion
+rho_in = 1
+u_in = 4
+b_in = 1
+p_in = 1
+
+# For the default waves, 2*p_in/(b_in^2+<delta Bperp^2>)=1 at the inlet.
+# This ratio of mean pressures is not <2*p/B^2>; background-only beta is 2.
+# p_in is independent of amplitude so the zero-wave control keeps the
+# SAME wind background. This background contains neither gravity nor heating.
+
+a = 1 + (a_out - 1)*y/(2*pi)
+enthalpy_in = mhd:g/(mhd:g - 1)*p_in/rho_in
+energy = 0.5*u_in^2 + enthalpy_in
+
+# U_next = sqrt(2*[E-h_in*(u_in/(U_previous*a^2))^(gamma-1)]).
+# At the defaults, |iteration slope| <= about 0.11, including inlet guards.
+# Fourteen iterations give near-roundoff Bernoulli residuals.
+# Do not move u_in near/below the sonic speed without changing this solve.
+u00 = u_in
+u01 = sqrt(2*(energy - enthalpy_in*(u_in/(u00*a^2))^(mhd:g - 1)))
+u02 = sqrt(2*(energy - enthalpy_in*(u_in/(u01*a^2))^(mhd:g - 1)))
+u03 = sqrt(2*(energy - enthalpy_in*(u_in/(u02*a^2))^(mhd:g - 1)))
+u04 = sqrt(2*(energy - enthalpy_in*(u_in/(u03*a^2))^(mhd:g - 1)))
+u05 = sqrt(2*(energy - enthalpy_in*(u_in/(u04*a^2))^(mhd:g - 1)))
+u06 = sqrt(2*(energy - enthalpy_in*(u_in/(u05*a^2))^(mhd:g - 1)))
+u07 = sqrt(2*(energy - enthalpy_in*(u_in/(u06*a^2))^(mhd:g - 1)))
+u08 = sqrt(2*(energy - enthalpy_in*(u_in/(u07*a^2))^(mhd:g - 1)))
+u09 = sqrt(2*(energy - enthalpy_in*(u_in/(u08*a^2))^(mhd:g - 1)))
+u10 = sqrt(2*(energy - enthalpy_in*(u_in/(u09*a^2))^(mhd:g - 1)))
+u11 = sqrt(2*(energy - enthalpy_in*(u_in/(u10*a^2))^(mhd:g - 1)))
+u12 = sqrt(2*(energy - enthalpy_in*(u_in/(u11*a^2))^(mhd:g - 1)))
+u13 = sqrt(2*(energy - enthalpy_in*(u_in/(u12*a^2))^(mhd:g - 1)))
+u14 = sqrt(2*(energy - enthalpy_in*(u_in/(u13*a^2))^(mhd:g - 1)))
+
+speed = u14
+rho = rho_in*u_in/(speed*a^2)
+pressure = p_in*(rho/rho_in)^mhd:g
+bmag = b_in/a^2
+va_in = b_in/sqrt(rho_in)
+
+[waves]
+amplitude = 1.0
+
+# Eight fixed-phase modes. Each has kx=+/-kz, with perpendicular
+# polarization, and a different positive parallel wavenumber (12 to 19).
+# Initial lambda_y=Ly/q: at least 26.9 cells at the default ny.
+# omega_q=q*omega_unit corresponds to +y propagation at Uin+vAin.
+# BOUT's expression x is in [0,1]; z and y are angle-like in [0,2*pi].
+omega_unit = 2*pi*(wind:u_in + wind:va_in)/mesh:Ly
+phase01 = 2*pi*x + z + 12*y - 12*omega_unit*t + 0.37
+phase02 = 2*pi*x - z + 13*y - 13*omega_unit*t + 2.11
+phase03 = 2*(2*pi*x + z) + 14*y - 14*omega_unit*t + 5.03
+phase04 = 2*(2*pi*x - z) + 15*y - 15*omega_unit*t + 0.91
+phase05 = 3*(2*pi*x + z) + 16*y - 16*omega_unit*t + 4.31
+phase06 = 3*(2*pi*x - z) + 17*y - 17*omega_unit*t + 1.73
+phase07 = 4*(2*pi*x + z) + 18*y - 18*omega_unit*t + 3.67
+phase08 = 4*(2*pi*x - z) + 19*y - 19*omega_unit*t + 5.89
+
+# <shape_x^2+shape_z^2>_(x,z)=1 at every y and t.
+# d_x(shape_x)+d_z(shape_z)=0 for Lx=Lz=2*pi.
+shape_x = (cos(phase01) + cos(phase02) + cos(phase03) + cos(phase04) + cos(phase05) + cos(phase06) + cos(phase07) + cos(phase08))/sqrt(8)
+shape_z = (-cos(phase01) + cos(phase02) - cos(phase03) + cos(phase04) - cos(phase05) + cos(phase06) - cos(phase07) + cos(phase08))/sqrt(8)
+
+# Physical transverse magnetic components; no radial perturbation at t=0.
+bx_physical = amplitude*wind:bmag*shape_x
+bz_physical = amplitude*wind:bmag*shape_z
+
+[all]
+scale = 1
+bndry_all = free_o2
+bndry_yup = free_o2
+
+[density]
+function = wind:rho
+bndry_ydown = dirichlet(wind:rho_in)
+
+[pressure]
+function = wind:pressure
+bndry_ydown = dirichlet(wind:p_in)
+
+[v_y]
+function = wind:speed
+bndry_ydown = dirichlet(wind:u_in)
+
+[By]
+function = wind:bmag
+bndry_ydown = dirichlet(wind:b_in)
+
+# Outward Alfvenic sign for B0>0: delta v_physical=-delta B/sqrt(rho).
+# v_x=a*vhat_x, Bx=Bhat_x/a (and similarly in z).
+# Expression-valued Dirichlet boundaries use the same phases at time t.
+[v_x]
+function = -wind:a*waves:bx_physical/sqrt(wind:rho)
+bndry_ydown = dirichlet(-wind:b_in*waves:amplitude*waves:shape_x/sqrt(wind:rho_in))
+
+[v_z]
+function = -wind:a*waves:bz_physical/sqrt(wind:rho)
+bndry_ydown = dirichlet(-wind:b_in*waves:amplitude*waves:shape_z/sqrt(wind:rho_in))
+
+[Bx]
+function = waves:bx_physical/wind:a
+bndry_ydown = dirichlet(wind:b_in*waves:amplitude*waves:shape_x)
+
+[Bz]
+function = waves:bz_physical/wind:a
+bndry_ydown = dirichlet(wind:b_in*waves:amplitude*waves:shape_z)

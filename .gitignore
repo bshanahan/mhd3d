@@ -1,0 +1,18 @@
+# Keep source and example inputs at their existing locations.
+/build/*
+!/build/boutmhd.py
+!/build/flare/
+/build/flare/*
+!/build/flare/BOUT.inp
+!/build/flare/plot_flared_by.py
+!/build/flare/switchback_analysis.py
+
+/data/*
+!/data/BOUT.inp
+!/data/otdiag.py
+
+/runs/
+*~
+*:Zone.Identifier
+__pycache__/
+*.py[cod]

@@ -1,0 +1,91 @@
+# 3D Orszag-Tang vortex, triply-periodic Cartesian slab.
+# No grid file: mesh, metric, and initial conditions all set here.
+# Domain [0,2pi]^3, identity metric, gamma = 5/3, c_s = 1, t_final = pi.
+
+nout     = 50
+timestep = 0.06283185307179587    # pi/50
+
+MXG = 2
+MYG = 2
+
+periodicX = true  # periodic in X
+
+##################################################
+[mesh]
+
+# NOTE: nx INCLUDES the 2*MXG guard cells; ny and nz do NOT.
+nx = 132        # power of 2 + 2*MXG guard points
+ny = 128
+nz = 64        # power of 2 (FFT-friendly)
+
+dx = 2*pi/128
+dy = 2*pi/128
+dz = 1/nz
+#ZMIN = 0.0
+#ZMAX = 1.0      # -> dz = (ZMAX-ZMIN)*2*pi/nz = 2*pi/128 = dx
+
+ixseps1 = nx#132       # >= nx: whole domain is "core" -> y periodic
+ixseps2 = nx#132
+
+##################################################
+# derivative methods
+[mesh:ddx]
+first  = C2
+second = C2
+upwind = W3
+
+[mesh:ddy]
+first  = C2
+second = C2
+upwind = W3
+
+[mesh:ddz]
+first  = C2
+second = C2
+upwind = W3
+
+##################################################
+[solver]
+type   = cvode
+atol   = 1e-10
+rtol   = 1e-05
+mxstep = 100000
+
+##################################################
+[mhd]
+g = 1.6666666666666667
+
+include_viscos = true
+viscos         = 1.0e-4     # ~ dx; broadens shocks to a few cells
+#eta            = 0.0        # only if you added the resistive term
+
+##################################################
+[all]
+scale     = 1.0
+bndry_all = none            # all three directions periodic
+
+[density]
+function = 25/(36*pi)
+
+[pressure]
+function = 5/(12*pi)
+
+# --- velocity: COVARIANT -> underscore ---
+[v_x]
+function = -sin(z)
+
+[v_y]
+function = sin(2*pi*x)
+
+[v_z]
+function = sin(y)
+
+# --- magnetic field: CONTRAVARIANT -> no underscore ---
+[Bx]
+function = -sin(z)/sqrt(4*pi)
+
+[By]
+function = sin(4*pi*x)/sqrt(4*pi)
+
+[Bz]
+function = sin(2*y)/sqrt(4*pi)
