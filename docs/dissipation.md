@@ -1,6 +1,6 @@
 # Physical dissipation in MHD3D
 
-The model now includes covariant Newtonian viscosity and resistive induction with matching thermal heating. It still evolves density, pressure, covariant velocity and contravariant magnetic field. The ideal terms, static metric, initial profiles and primitive-variable output names are unchanged. This is a resolved viscous/resistive MHD extension, not a conservative Godunov shock solver.
+The model now includes covariant Newtonian viscosity and resistive induction with matching thermal heating. The default formulation evolves density, pressure, covariant velocity and contravariant magnetic field. The ideal terms, static metric, initial profiles and primitive-variable output names are unchanged. This is a resolved viscous/resistive MHD extension, not a conservative Godunov shock solver.
 
 ## Equations and conventions
 
@@ -103,4 +103,4 @@ Verified against the installed BOUT++ development build with 2D metrics and CVOD
 BOUT++ provides finite-volume reconstruction/limiter and dissipative flux operators (`FV::Div_par_mod`, `FV::Div_par_fvv`, `FV::Div_par_fvv_heating` and related routines). Hermes-3 uses these for fluid transport and includes Euler shock tests. Its documentation shows that evolving total fluid energy improves the Sod shock location compared with evolving pressure:
 https://hermes3.readthedocs.io/en/latest/developer.html#sod-shock
 
-These are useful building blocks, not a drop-in full 3D MHD Riemann solver found in the inspected installation. A conservative MHD extension must evolve compatible mass, momentum, total energy and induction fluxes, use magnetosonic signal speeds, and maintain the magnetic constraint. Replacing V_dot_Grad with a scalar FV operator while retaining the present magnetic forces and primitive pressure equation would not accomplish that. The current change addresses the physical dissipation terms only; it does not implement that larger flux-system change or alter the geometric approximation.
+These are useful building blocks, not a drop-in full 3D MHD Riemann solver found in the inspected installation. A conservative MHD extension must evolve compatible mass, momentum, total energy and induction fluxes, use magnetosonic signal speeds, and maintain the magnetic constraint. Replacing V_dot_Grad with a scalar FV operator while retaining the present magnetic forces and primitive pressure equation would not accomplish that. The physical dissipation described here is independent of that larger flux-system change. The subsequent [optional conservative formulation](shock-capturing.md) implements coupled finite-volume GLM-MHD; it remains disabled by default and retains the geometric approximation.

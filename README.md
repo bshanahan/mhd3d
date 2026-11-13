@@ -56,3 +56,11 @@ python build/flare/plot_flared_by.py runs/flare --out runs/flare/flared_By.html
 ## Physical dissipation
 
 The model includes Newtonian shear/bulk viscosity and resistive induction with matching thermal heating. See [the equations, boundary closures, limitations, and analytic tests](docs/dissipation.md). This extension is not a full MHD shock-capturing solver.
+
+## Optional shock capturing
+
+Set `mhd:shock_capturing=true` and `solver:type=rk3ssp` to evolve conservative
+finite-volume GLM-MHD with BOUT++ slope limiters. The default remains the
+primitive formulation. See [options, equations, supported geometry, and
+verification](docs/shock-capturing.md). Both `mhd3d.cxx` and `mhd_fv.hxx` are
+required to build. A self-contained Brio-Wu input is in `examples/brio-wu/BOUT.inp`.
