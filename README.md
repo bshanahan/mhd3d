@@ -52,3 +52,7 @@ python build/flare/plot_flared_by.py runs/flare --out runs/flare/flared_By.html
 ```
 
 `build/flare/switchback_analysis.py` provides both importable diagnostics and a command-line interface for flux-tube dumps. See the script docstrings for options and assumptions.
+
+## Physical dissipation
+
+The model includes Newtonian shear/bulk viscosity and resistive induction with matching thermal heating. See [the equations, boundary closures, limitations, and analytic tests](docs/dissipation.md). This extension is not a full MHD shock-capturing solver.
